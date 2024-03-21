@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - https://github.com/movetokube/postgres-operator/deploy?ref=1.2.5
+  - ./cluster.yaml
+
+patches:
+  # for ext-postgres-operator, use CNPG-generated secret and watch self namespace only
+  - path: ./ext-postgres-operator.deployment.patch.yaml
+  - target:
+      kind: Deployment
+      name: ext-postgres-operator
+    patch: |-
+      - op: remove
+        path: /spec/template/spec/containers/0/envFrom
+      - op: remove
+        path: /spec/template/spec/containers/0/env/1/value
+  # for ext-postgres-operator, replace cluster resources with namespaced resources
+  - target:
+      kind: ClusterRole
+      name: ext-postgres-operator
+    patch: |-
+      - op: replace
+        path: /kind
+        value: Role
+  - target:
+      kind: ClusterRoleBinding
+      name: ext-postgres-operator
+    patch: |-
+      - op: replace
+        path: /kind
+        value: RoleBinding
+      - op: replace
+        path: /roleRef/kind
+        value: Role

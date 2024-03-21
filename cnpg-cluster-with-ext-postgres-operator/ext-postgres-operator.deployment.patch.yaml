@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: ext-postgres-operator
+
+spec:
+  template:
+    spec:
+      containers:
+        - name: ext-postgres-operator
+          env:
+            - name: POSTGRES_INSTANCE
+              value: '<insert-a-unique-instance-name>'
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # credentials are taken from the generated superuser secret
+            - name: POSTGRES_HOST
+              value: "database-rw"
+            - name: POSTGRES_URI_ARGS
+              value: ""
+            - name: POSTGRES_DEFAULT_DATABASE
+              value: "database"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: database-superuser
+                  key: username
+            - name: POSTGRES_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: database-superuser
+                  key: password
