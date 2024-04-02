@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: ext-postgres-operator
+
+spec:
+  template:
+    spec:
+      # @WARNING 
+      # We use an init container with two volumes so the main container runs as user, with the correct rights to use TLS files for authentication
+      # This won't be necessary when https://github.com/kubernetes/kubernetes/issues/81089 is fixed
+      # When possible, remove the init container and use only one volume to mount the secret containing TLS authentication files
+      initContainers:
+        - name: permissions
+          image: docker.io/library/busybox
+          command: ["sh", "-c"]
+          args: 
+            - > # in YAML, the ">" means newlines will be changed to spaces
+              cp /db-auth-source/* /db-auth/
+              && chown -R 1001:1001 /db-auth/*
+              && chmod 400 /db-auth/*
+
+          volumeMounts:
+            - name: cockroachdb-authentication-source
+              mountPath: "/db-auth-source"
+              readOnly: false # need to be writable for cp because files are symlinks
+            - name: cockroachdb-authentication
+              mountPath: "/db-auth"
+              readOnly: false
+
+      containers:
+        - name: ext-postgres-operator
+
+          env:
+            - name: POSTGRES_INSTANCE
+              value: '<insert-a-unique-instance-name>'
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # credentials are taken from the generated TLS secret
+            - name: POSTGRES_HOST
+              value: "database-public:26257"
+            - name: POSTGRES_URI_ARGS
+              value: sslmode=verify-full&sslrootcert=/db-auth/ca.crt&sslcert=/db-auth/tls.crt&sslkey=/db-auth/tls.key
+
+            - name: POSTGRES_DEFAULT_DATABASE
+              value: "defaultdb"
+            - name: POSTGRES_USER
+              value: "root"
+            - name: POSTGRES_PASS
+              value: ""
+
+          volumeMounts:
+            - name: cockroachdb-authentication
+              mountPath: "/db-auth"
+              readOnly: true
+
+      volumes:
+        - name: cockroachdb-authentication-source
+          secret:
+            secretName: database-root
+            defaultMode: 0666 # when https://github.com/kubernetes/kubernetes/issues/81089 is fixed, use 0400
+        - name: cockroachdb-authentication
+          emptyDir:
+            medium: Memory

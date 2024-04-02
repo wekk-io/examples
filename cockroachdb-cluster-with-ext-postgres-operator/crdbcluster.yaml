@@ -1,0 +1,44 @@
+apiVersion: crdb.cockroachlabs.com/v1alpha1
+kind: CrdbCluster
+
+metadata:
+  name: database
+
+spec:
+  cockroachDBVersion: v23.2.2
+
+  nodes: 3
+
+  dataStore:
+    pvc:
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "10Gi"
+        volumeMode: Filesystem
+
+  resources:
+    requests:
+      cpu: 2
+      memory: 8Gi
+    limits:
+      cpu: 2
+      memory: 8Gi
+
+  tlsEnabled: true
+
+  # Affinity is behind a feature gate (in the operator) that is disabled by default
+  # affinity:
+  #   podAntiAffinity:
+  #      preferredDuringSchedulingIgnoredDuringExecution:
+  #      - weight: 100
+  #        podAffinityTerm:
+  #          labelSelector:
+  #            matchExpressions:
+  #            - key: app.kubernetes.io/instance
+  #              operator: In
+  #              values:
+  #              - database
+  #          topologyKey: kubernetes.io/hostname
